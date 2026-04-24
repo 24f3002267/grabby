@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Video Grabber"
+version = "1.0.0"
+id = "artifacts/video-grabber"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19442
+
+[services.development]
+run = "pnpm --filter @workspace/video-grabber run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/video-grabber", "run", "build" ]
+publicDir = "artifacts/video-grabber/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19442"
+BASE_PATH = "/"

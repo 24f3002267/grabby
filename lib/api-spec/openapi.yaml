@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: media
+    description: Video and playlist extraction
 paths:
   /healthz:
     get:
@@ -24,6 +26,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /extract:
+    post:
+      operationId: extractMedia
+      tags: [media]
+      summary: Extract video or playlist info
+      description: |
+        Inspect a YouTube or Bilibili URL and return the available formats
+        for a single video, or the list of entries for a playlist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractRequest"
+      responses:
+        "200":
+          description: Extraction successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractResponse"
+        "400":
+          description: Invalid URL or extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -34,3 +63,187 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    ExtractRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          description: A YouTube or Bilibili video or playlist URL
+      required:
+        - url
+
+    MediaFormat:
+      type: object
+      description: A single downloadable format
+      properties:
+        formatId:
+          type: string
+          description: yt-dlp format identifier
+        ext:
+          type: string
+          description: File container extension (mp4, webm, m4a, ...)
+        kind:
+          type: string
+          enum: [video, audio, video_audio]
+          description: What this stream contains
+        resolution:
+          type: string
+          nullable: true
+          description: Human label like "1080p" or "audio only"
+        height:
+          type: integer
+          nullable: true
+        width:
+          type: integer
+          nullable: true
+        fps:
+          type: number
+          nullable: true
+        vcodec:
+          type: string
+          nullable: true
+        acodec:
+          type: string
+          nullable: true
+        abr:
+          type: number
+          nullable: true
+          description: Audio bitrate in kbps
+        tbr:
+          type: number
+          nullable: true
+          description: Total bitrate in kbps
+        filesize:
+          type: integer
+          nullable: true
+          description: Approximate size in bytes
+        filesizeLabel:
+          type: string
+          nullable: true
+          description: Pre-formatted human readable size
+        note:
+          type: string
+          nullable: true
+          description: Format note (e.g., "1080p60", "DASH audio")
+      required:
+        - formatId
+        - ext
+        - kind
+
+    VideoInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          description: The original or canonical URL for this video
+        title:
+          type: string
+        uploader:
+          type: string
+          nullable: true
+        duration:
+          type: number
+          nullable: true
+          description: Duration in seconds
+        durationLabel:
+          type: string
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [youtube, bilibili, other]
+        formats:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaFormat"
+      required:
+        - id
+        - url
+        - title
+        - source
+        - formats
+
+    PlaylistEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        title:
+          type: string
+        thumbnail:
+          type: string
+          nullable: true
+        duration:
+          type: number
+          nullable: true
+        durationLabel:
+          type: string
+          nullable: true
+        uploader:
+          type: string
+          nullable: true
+      required:
+        - id
+        - url
+        - title
+
+    PlaylistInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        title:
+          type: string
+        uploader:
+          type: string
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [youtube, bilibili, other]
+        entryCount:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlaylistEntry"
+      required:
+        - id
+        - url
+        - title
+        - source
+        - entryCount
+        - entries
+
+    ExtractResponse:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [video, playlist]
+        video:
+          $ref: "#/components/schemas/VideoInfo"
+          nullable: true
+        playlist:
+          $ref: "#/components/schemas/PlaylistInfo"
+          nullable: true
+      required:
+        - kind

@@ -5,18 +5,26 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ErrorResponse,
+  ExtractRequest,
+  ExtractResponse,
+  HealthStatus,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +107,92 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Inspect a YouTube or Bilibili URL and return the available formats
+for a single video, or the list of entries for a playlist.
+
+ * @summary Extract video or playlist info
+ */
+export const getExtractMediaUrl = () => {
+  return `/api/extract`;
+};
+
+export const extractMedia = async (
+  extractRequest: ExtractRequest,
+  options?: RequestInit,
+): Promise<ExtractResponse> => {
+  return customFetch<ExtractResponse>(getExtractMediaUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(extractRequest),
+  });
+};
+
+export const getExtractMediaMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractMedia>>,
+    TError,
+    { data: BodyType<ExtractRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof extractMedia>>,
+  TError,
+  { data: BodyType<ExtractRequest> },
+  TContext
+> => {
+  const mutationKey = ["extractMedia"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof extractMedia>>,
+    { data: BodyType<ExtractRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return extractMedia(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExtractMediaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof extractMedia>>
+>;
+export type ExtractMediaMutationBody = BodyType<ExtractRequest>;
+export type ExtractMediaMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Extract video or playlist info
+ */
+export const useExtractMedia = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractMedia>>,
+    TError,
+    { data: BodyType<ExtractRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof extractMedia>>,
+  TError,
+  { data: BodyType<ExtractRequest> },
+  TContext
+> => {
+  return useMutation(getExtractMediaMutationOptions(options));
+};

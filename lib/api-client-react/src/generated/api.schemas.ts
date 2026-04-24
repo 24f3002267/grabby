@@ -8,3 +8,120 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ErrorResponse {
+  error: string;
+}
+
+export interface ExtractRequest {
+  /** A YouTube or Bilibili video or playlist URL */
+  url: string;
+}
+
+/**
+ * What this stream contains
+ */
+export type MediaFormatKind =
+  (typeof MediaFormatKind)[keyof typeof MediaFormatKind];
+
+export const MediaFormatKind = {
+  video: "video",
+  audio: "audio",
+  video_audio: "video_audio",
+} as const;
+
+/**
+ * A single downloadable format
+ */
+export interface MediaFormat {
+  /** yt-dlp format identifier */
+  formatId: string;
+  /** File container extension (mp4, webm, m4a, ...) */
+  ext: string;
+  /** What this stream contains */
+  kind: MediaFormatKind;
+  /** Human label like "1080p" or "audio only" */
+  resolution?: string | null;
+  height?: number | null;
+  width?: number | null;
+  fps?: number | null;
+  vcodec?: string | null;
+  acodec?: string | null;
+  /** Audio bitrate in kbps */
+  abr?: number | null;
+  /** Total bitrate in kbps */
+  tbr?: number | null;
+  /** Approximate size in bytes */
+  filesize?: number | null;
+  /** Pre-formatted human readable size */
+  filesizeLabel?: string | null;
+  /** Format note (e.g., "1080p60", "DASH audio") */
+  note?: string | null;
+}
+
+export type VideoInfoSource =
+  (typeof VideoInfoSource)[keyof typeof VideoInfoSource];
+
+export const VideoInfoSource = {
+  youtube: "youtube",
+  bilibili: "bilibili",
+  other: "other",
+} as const;
+
+export interface VideoInfo {
+  id: string;
+  /** The original or canonical URL for this video */
+  url: string;
+  title: string;
+  uploader?: string | null;
+  /** Duration in seconds */
+  duration?: number | null;
+  durationLabel?: string | null;
+  thumbnail?: string | null;
+  source: VideoInfoSource;
+  formats: MediaFormat[];
+}
+
+export interface PlaylistEntry {
+  id: string;
+  url: string;
+  title: string;
+  thumbnail?: string | null;
+  duration?: number | null;
+  durationLabel?: string | null;
+  uploader?: string | null;
+}
+
+export type PlaylistInfoSource =
+  (typeof PlaylistInfoSource)[keyof typeof PlaylistInfoSource];
+
+export const PlaylistInfoSource = {
+  youtube: "youtube",
+  bilibili: "bilibili",
+  other: "other",
+} as const;
+
+export interface PlaylistInfo {
+  id: string;
+  url: string;
+  title: string;
+  uploader?: string | null;
+  thumbnail?: string | null;
+  source: PlaylistInfoSource;
+  entryCount: number;
+  entries: PlaylistEntry[];
+}
+
+export type ExtractResponseKind =
+  (typeof ExtractResponseKind)[keyof typeof ExtractResponseKind];
+
+export const ExtractResponseKind = {
+  video: "video",
+  playlist: "playlist",
+} as const;
+
+export interface ExtractResponse {
+  kind: ExtractResponseKind;
+  video?: VideoInfo | null;
+  playlist?: PlaylistInfo | null;
+}

@@ -6,4 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./errorResponse";
+export * from "./extractRequest";
+export * from "./extractResponse";
+export * from "./extractResponseKind";
 export * from "./healthStatus";
+export * from "./mediaFormat";
+export * from "./mediaFormatKind";
+export * from "./playlistEntry";
+export * from "./playlistInfo";
+export * from "./playlistInfoSource";
+export * from "./videoInfo";
+export * from "./videoInfoSource";

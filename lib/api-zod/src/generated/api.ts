@@ -14,3 +14,89 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Inspect a YouTube or Bilibili URL and return the available formats
+for a single video, or the list of entries for a playlist.
+
+ * @summary Extract video or playlist info
+ */
+export const ExtractMediaBody = zod.object({
+  url: zod.string().describe("A YouTube or Bilibili video or playlist URL"),
+});
+
+export const ExtractMediaResponse = zod.object({
+  kind: zod.enum(["video", "playlist"]),
+  video: zod
+    .object({
+      id: zod.string(),
+      url: zod
+        .string()
+        .describe("The original or canonical URL for this video"),
+      title: zod.string(),
+      uploader: zod.string().nullish(),
+      duration: zod.number().nullish().describe("Duration in seconds"),
+      durationLabel: zod.string().nullish(),
+      thumbnail: zod.string().nullish(),
+      source: zod.enum(["youtube", "bilibili", "other"]),
+      formats: zod.array(
+        zod
+          .object({
+            formatId: zod.string().describe("yt-dlp format identifier"),
+            ext: zod
+              .string()
+              .describe("File container extension (mp4, webm, m4a, ...)"),
+            kind: zod
+              .enum(["video", "audio", "video_audio"])
+              .describe("What this stream contains"),
+            resolution: zod
+              .string()
+              .nullish()
+              .describe('Human label like \"1080p\" or \"audio only\"'),
+            height: zod.number().nullish(),
+            width: zod.number().nullish(),
+            fps: zod.number().nullish(),
+            vcodec: zod.string().nullish(),
+            acodec: zod.string().nullish(),
+            abr: zod.number().nullish().describe("Audio bitrate in kbps"),
+            tbr: zod.number().nullish().describe("Total bitrate in kbps"),
+            filesize: zod
+              .number()
+              .nullish()
+              .describe("Approximate size in bytes"),
+            filesizeLabel: zod
+              .string()
+              .nullish()
+              .describe("Pre-formatted human readable size"),
+            note: zod
+              .string()
+              .nullish()
+              .describe('Format note (e.g., \"1080p60\", \"DASH audio\")'),
+          })
+          .describe("A single downloadable format"),
+      ),
+    })
+    .nullish(),
+  playlist: zod
+    .object({
+      id: zod.string(),
+      url: zod.string(),
+      title: zod.string(),
+      uploader: zod.string().nullish(),
+      thumbnail: zod.string().nullish(),
+      source: zod.enum(["youtube", "bilibili", "other"]),
+      entryCount: zod.number(),
+      entries: zod.array(
+        zod.object({
+          id: zod.string(),
+          url: zod.string(),
+          title: zod.string(),
+          thumbnail: zod.string().nullish(),
+          duration: zod.number().nullish(),
+          durationLabel: zod.string().nullish(),
+          uploader: zod.string().nullish(),
+        }),
+      ),
+    })
+    .nullish(),
+});
