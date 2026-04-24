@@ -84,6 +84,35 @@ function classifyKind(f: YtdlpFormat): "video" | "audio" | "video_audio" {
   return "audio";
 }
 
+// Pull a kbps hint from format_note like "Default, low" or "Default, high"
+function bitrateHintFromNote(note: string | null | undefined): number | null {
+  if (!note) return null;
+  const lower = note.toLowerCase();
+  const explicit = lower.match(/(\d+)\s*k/);
+  if (explicit && explicit[1]) return Number(explicit[1]);
+  if (lower.includes("ultralow")) return 32;
+  if (lower.includes("low")) return 64;
+  if (lower.includes("medium")) return 96;
+  if (lower.includes("high")) return 128;
+  return null;
+}
+
+// Estimate filesize in bytes from kbps and seconds
+function estimateBytes(kbps: number | null | undefined, seconds: number | null | undefined): number | null {
+  if (!kbps || !seconds || !Number.isFinite(kbps) || !Number.isFinite(seconds)) return null;
+  return Math.round((kbps * 1000 * seconds) / 8);
+}
+
+// Heuristic: HLS audio in MP4 container is AAC — present as m4a
+function audioExtFor(f: YtdlpFormat): string {
+  const baseExt = (f.ext ?? "bin").toLowerCase();
+  const proto = (f.protocol ?? "").toLowerCase();
+  if (baseExt === "mp4" && (proto.includes("m3u8") || proto === "" || proto === "https")) {
+    return "m4a";
+  }
+  return baseExt;
+}
+
 function pickThumbnail(info: YtdlpInfo): string | null {
   if (info.thumbnail) return info.thumbnail;
   if (info.thumbnails && info.thumbnails.length > 0) {
@@ -107,31 +136,54 @@ function sortFormats(formats: YtdlpFormat[]): YtdlpFormat[] {
   return copy;
 }
 
-function mapFormat(f: YtdlpFormat) {
+function mapFormat(f: YtdlpFormat, durationSec: number | null = null) {
   const kind = classifyKind(f);
+
+  // Resolved bitrate (kbps) — fall back to format_note hint for audio
+  const noteHint = bitrateHintFromNote(f.format_note);
+  let resolvedAbr: number | null = f.abr && f.abr > 0 ? f.abr : null;
+  if (resolvedAbr == null && kind === "audio") resolvedAbr = noteHint;
+
+  let resolvedTbr: number | null = f.tbr && f.tbr > 0 ? f.tbr : null;
+  if (resolvedTbr == null && kind === "audio") resolvedTbr = resolvedAbr;
+
+  // Estimate filesize from total bitrate × duration when unavailable
+  const knownSize = f.filesize ?? f.filesize_approx ?? null;
+  const estimated = knownSize ?? estimateBytes(resolvedTbr, durationSec);
+
   let resolution: string | null = null;
   if (kind === "audio") {
-    resolution = "Audio only";
-  } else if (f.resolution) {
+    const label = resolvedAbr ? `Audio · ${Math.round(resolvedAbr)} kbps` : "Audio";
+    resolution = label;
+  } else if (f.resolution && f.resolution !== "audio only") {
     resolution = f.resolution;
   } else if (f.height) {
     resolution = `${f.height}p`;
   }
-  const filesize = f.filesize ?? f.filesize_approx ?? null;
+
+  const ext = kind === "audio" ? audioExtFor(f) : (f.ext ?? "bin");
+
+  // Codec inference for HLS streams that don't expose acodec
+  let acodec = f.acodec && f.acodec !== "none" ? f.acodec : null;
+  if (!acodec && kind === "audio" && (f.ext ?? "").toLowerCase() === "mp4") {
+    acodec = "aac";
+  }
+  let vcodec = f.vcodec && f.vcodec !== "none" ? f.vcodec : null;
+
   return {
     formatId: f.format_id,
-    ext: f.ext ?? "bin",
+    ext,
     kind,
     resolution,
     height: f.height ?? null,
     width: f.width ?? null,
     fps: f.fps ?? null,
-    vcodec: f.vcodec && f.vcodec !== "none" ? f.vcodec : null,
-    acodec: f.acodec && f.acodec !== "none" ? f.acodec : null,
-    abr: f.abr ?? null,
-    tbr: f.tbr ?? null,
-    filesize: filesize,
-    filesizeLabel: formatBytes(filesize),
+    vcodec,
+    acodec,
+    abr: resolvedAbr,
+    tbr: resolvedTbr,
+    filesize: estimated,
+    filesizeLabel: formatBytes(estimated),
     note: f.format_note ?? null,
   };
 }
@@ -139,6 +191,7 @@ function mapFormat(f: YtdlpFormat) {
 function injectMergedFormats(
   rawFormats: YtdlpFormat[],
   mapped: ReturnType<typeof mapFormat>[],
+  durationSec: number | null = null,
 ): ReturnType<typeof mapFormat>[] {
   const hasNativeCombined = mapped.some((f) => f.kind === "video_audio");
 
@@ -179,9 +232,23 @@ function injectMergedFormats(
     const videoExt = (v.ext ?? "").toLowerCase();
     const canBeMp4 = videoExt === "mp4" && (audioExt === "m4a" || audioExt === "mp4");
     const outExt = canBeMp4 ? "mp4" : "mkv";
-    const vSize = v.filesize ?? v.filesize_approx ?? 0;
-    const aSize = bestAudio.filesize ?? bestAudio.filesize_approx ?? 0;
-    const total = vSize && aSize ? vSize + aSize : null;
+
+    const audioBitrate =
+      (bestAudio.abr && bestAudio.abr > 0 ? bestAudio.abr : null) ??
+      bitrateHintFromNote(bestAudio.format_note) ??
+      128;
+    const videoBitrate = v.tbr && v.tbr > 0 ? v.tbr : null;
+    const totalKbps = (videoBitrate ?? 0) + audioBitrate || null;
+
+    const vSize = v.filesize ?? v.filesize_approx ?? null;
+    const aSize = bestAudio.filesize ?? bestAudio.filesize_approx ?? null;
+    let total: number | null = null;
+    if (vSize != null && aSize != null) total = vSize + aSize;
+    else total = estimateBytes(totalKbps, durationSec);
+
+    let mergedAcodec = bestAudio.acodec && bestAudio.acodec !== "none" ? bestAudio.acodec : null;
+    if (!mergedAcodec && audioExt === "m4a") mergedAcodec = "aac";
+
     merged.push({
       formatId: `${v.format_id}+${bestAudio.format_id}`,
       ext: outExt,
@@ -191,9 +258,9 @@ function injectMergedFormats(
       width: v.width ?? null,
       fps: v.fps ?? null,
       vcodec: v.vcodec ?? null,
-      acodec: bestAudio.acodec ?? null,
-      abr: bestAudio.abr ?? null,
-      tbr: (v.tbr ?? 0) + (bestAudio.abr ?? 0) || null,
+      acodec: mergedAcodec,
+      abr: audioBitrate,
+      tbr: totalKbps,
       filesize: total,
       filesizeLabel: formatBytes(total),
       note: hasNativeCombined ? "Merged" : null,
@@ -273,8 +340,9 @@ router.post("/extract", async (req: Request, res: Response) => {
     const formats = (videoInfo.formats ?? []).filter(
       (f) => f.format_id && (f.protocol ?? "").toLowerCase() !== "mhtml",
     );
-    const mapped = sortFormats(formats).map(mapFormat);
-    const withMerged = injectMergedFormats(formats, mapped);
+    const durationSec = videoInfo.duration ?? null;
+    const mapped = sortFormats(formats).map((f) => mapFormat(f, durationSec));
+    const withMerged = injectMergedFormats(formats, mapped, durationSec);
 
     const video = {
       kind: "video" as const,

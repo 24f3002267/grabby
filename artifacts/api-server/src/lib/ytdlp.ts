@@ -21,11 +21,13 @@ export type YtdlpFormat = {
   vcodec?: string | null;
   acodec?: string | null;
   abr?: number | null;
+  asr?: number | null;
   tbr?: number | null;
   filesize?: number | null;
   filesize_approx?: number | null;
   format_note?: string | null;
   protocol?: string | null;
+  language?: string | null;
   url?: string | null;
 };
 

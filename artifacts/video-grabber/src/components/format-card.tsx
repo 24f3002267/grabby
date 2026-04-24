@@ -53,22 +53,24 @@ export function FormatCard({ format, videoUrl, videoTitle }: FormatCardProps) {
         {format.vcodec && format.vcodec !== "none" && (
           <div className="flex justify-between">
             <span>Video Codec</span>
-            <span className="text-foreground">{format.vcodec}</span>
+            <span className="text-foreground truncate ml-2">{format.vcodec}</span>
           </div>
         )}
         {format.acodec && format.acodec !== "none" && (
           <div className="flex justify-between">
             <span>Audio Codec</span>
-            <span className="text-foreground">{format.acodec}</span>
+            <span className="text-foreground truncate ml-2">{format.acodec}</span>
           </div>
         )}
-        <div className="flex justify-between">
-          <span>Bitrate</span>
-          <span className="text-foreground">{format.tbr ? `${Math.round(format.tbr)}k` : (format.abr ? `${Math.round(format.abr)}k` : "Unknown")}</span>
-        </div>
+        {(format.tbr || format.abr) ? (
+          <div className="flex justify-between">
+            <span>Bitrate</span>
+            <span className="text-foreground">{`${Math.round(format.tbr || format.abr || 0)} kbps`}</span>
+          </div>
+        ) : null}
         <div className="flex justify-between font-bold text-sm mt-1 pt-1 border-t border-border/50">
           <span>Size</span>
-          <span className="text-primary">{format.filesizeLabel || "Unknown"}</span>
+          <span className="text-primary">{format.filesizeLabel ? `~${format.filesizeLabel}` : "—"}</span>
         </div>
       </div>
 
