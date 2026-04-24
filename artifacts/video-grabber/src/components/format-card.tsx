@@ -1,4 +1,5 @@
 import { Download, Play, Video, Music, HardDrive, FileAudio } from "lucide-react";
+import { toast } from "sonner";
 import type { MediaFormat } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,15 @@ export function FormatCard({ format, videoUrl, videoTitle }: FormatCardProps) {
     <a 
       href={downloadUrl}
       download
+      onClick={() => {
+        const isMerge = format.formatId.includes("+");
+        toast.success("Download starting...", {
+          description: isMerge
+            ? "Your video will be downloaded in a bit automatically — please be patient. Merging video and audio takes a moment."
+            : "Your video will be downloaded in a bit automatically — please be patient.",
+          duration: 7000,
+        });
+      }}
       className={cn(
         "group flex flex-col gap-2 p-4 border bg-card hover:bg-secondary/50 transition-colors relative overflow-hidden",
         format.kind === "video_audio" ? "border-primary/50 hover:border-primary" : "border-border hover:border-muted-foreground/50"

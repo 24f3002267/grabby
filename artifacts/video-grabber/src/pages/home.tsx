@@ -5,6 +5,7 @@ import { Terminal, ArrowRight, Loader2, AlertTriangle, Youtube, PlaySquare, Fold
 import { FormatCard } from "@/components/format-card";
 import { PlaylistView } from "@/components/playlist-view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Toaster } from "sonner";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -22,6 +23,17 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full flex flex-col">
+      <Toaster
+        theme="dark"
+        position="bottom-right"
+        toastOptions={{
+          classNames: {
+            toast: "!bg-card !border !border-primary/40 !text-foreground !rounded-none !font-mono",
+            title: "!font-bold !uppercase !text-primary !tracking-wider",
+            description: "!text-muted-foreground",
+          },
+        }}
+      />
       <header className="border-b border-border bg-background p-4 flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-xl tracking-tighter">
           <Terminal className="w-6 h-6 text-primary" />
